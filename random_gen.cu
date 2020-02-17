@@ -3,7 +3,28 @@
 #include "curand_kernel.h" 
 
 #include <stdio.h>
-#include <time.h>
+#include <sys/time.h>
+
+
+
+double cpuSecond()
+{
+#if _WIN32
+	_LARGE_INTEGER time_start;    /*开始时间*/
+	double dqFreq;                /*计时器频率*/
+	LARGE_INTEGER f;            /*计时器频率*/
+	QueryPerformanceFrequency(&f);
+	dqFreq = (double)f.QuadPart;
+	QueryPerformanceCounter(&time_start);
+	return time_start.QuadPart / dqFreq ;//单位为秒，精度为1000 000/（cpu主频）微秒
+#endif
+
+#if __linux__
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	return ((double)tp.tv_sec + (double)tp.tv_usec*1e-6);
+#endif
+}
 
 
 __global__ void kernel_set_random(curandState *curand_states,int width,int height,long clock_for_rand)
@@ -36,6 +57,9 @@ __global__ void kernel_random(float *dev_random_array,int width,int height,curan
 
 int main()
 {
+
+    double iStart,iElapse;
+    iStart=cpuSecond();
     const int array_size_width = 10;
     const int array_size_height = 10;
     float random_array[array_size_width*array_size_height];
@@ -118,6 +142,8 @@ int main()
         }
     }
 
+    iElapse=cpuSecond()-iStart;
+    printf("Total time: %f\n",iElapse);
     //free
     cudaFree(dev_random_array);
     cudaFree(dev_states);
